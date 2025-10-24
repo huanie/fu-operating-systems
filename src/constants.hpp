@@ -1,11 +1,11 @@
 #pragma once
 #include <stdint.h>
 
-template <typename T> void volatile_write(uintptr_t addr, T value) {
+template <typename T> inline void volatile_write(uintptr_t addr, T value) {
   *reinterpret_cast<volatile T *>(addr) = value;
 }
 
-template <typename T> T volatile_read(uintptr_t addr) {
+template <typename T> inline auto volatile_read(uintptr_t addr) -> T {
   return *reinterpret_cast<volatile T *>(addr);
 }
 

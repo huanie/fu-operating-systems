@@ -28,7 +28,7 @@ uint32_t constexpr TXDIS = 1 << 7;
 uint32_t constexpr RSTTX = 1 << 3;
 uint32_t constexpr CHMOD = 0;     // normal mode
 uint32_t constexpr PAR = 1 << 11; // no parity
-uint32_t constexpr TXRDY = 1 < 1;
+uint32_t constexpr TXRDY = 1 << 1;
 inline void init() {
   // multiplexing: select peripheral, don't use the pin as GPIO
   volatile_write(PIOA + PIO_PDR, DBGU_PINS);
