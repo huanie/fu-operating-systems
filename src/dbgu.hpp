@@ -2,7 +2,6 @@
 #include "constants.hpp"
 #include "pio.hpp"
 #include <stdint.h>
-
 // AT91RM9200
 // 26.5 Debug Unit User Interface
 namespace dbgu {
@@ -49,6 +48,77 @@ inline void write(char character) {
   while (!(volatile_read<uint32_t>(SR) & TXRDY)) {
   }
   volatile_write<uint32_t>(THR, character);
+}
+// String version
+inline void write_string(const char *str) {
+  if (!str) {
+    write_string("(null)");
+    return;
+  }
+  while (*str) {
+    write(*str++);
+  }
+}
+// Hex version
+constexpr inline void write_hex(unsigned int value) {
+  write('0');
+  write('x');
+  constexpr char hex_chars[] = "0123456789ABCDEF";
+  bool started = false;
+  // Print each nibble from highest to lowest
+  for (int shift = (sizeof(unsigned int) * 8) - 4; shift >= 0; shift -= 4) {
+    unsigned int nibble = (value >> shift) & 0xF;
+    if (nibble != 0 || started || shift == 0) { // Avoid leading zeros
+      char c = hex_chars[nibble];
+      write(c);
+      started = true;
+    }
+  }
+}
+// base case
+inline void printf(const char *str) {
+  while (*str) {
+    write(*str);
+    str++;
+  }
+}
+
+template <typename T, typename... Args>
+inline void printf(const char *format, T value, Args... args) {
+  while (*format) {
+    if (*format == '%') {
+      auto formatter = format + 1;
+      format += 2; // skip the % and also skip the formatter
+      if (!formatter) {
+	return;
+      }
+      if (*formatter == 'c') {
+	if constexpr (is_char_type<T>) {
+	  write(value);
+	}
+      } else if (*formatter == 's') {
+	if constexpr (is_string_type<T>) {
+	  write_string(value);
+	}
+      } else if (*formatter == 'p') {
+	if constexpr (is_void_ptr_type<T>) {
+	  write_hex(reinterpret_cast<unsigned int>(value));
+	}
+      } else if (*formatter == 'x') {
+	if constexpr (is_unsigned_int_type<T>) {
+	  write_hex(value);
+	}
+      } else {
+	// unknown formatter
+	write('%');
+      }
+      printf(format, args...);
+      return;
+    } else {
+      write(*format);
+      ++format;
+    }
+  }
 }
 
 } // namespace dbgu
