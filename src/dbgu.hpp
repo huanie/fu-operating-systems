@@ -28,6 +28,10 @@ uint32_t constexpr RSTTX = 1 << 3;
 uint32_t constexpr CHMOD = 0;     // normal mode
 uint32_t constexpr PAR = 1 << 11; // no parity
 uint32_t constexpr TXRDY = 1 << 1;
+uint32_t constexpr FRAME = 1 << 6;
+uint32_t constexpr RSTSTA = 1 << 8;
+uint32_t constexpr OVRE = 1 << 5;
+uint32_t constexpr RXRDY = 0;
 inline void init() {
   // multiplexing: select peripheral, don't use the pin as GPIO
   volatile_write(PIOA + PIO_PDR, DBGU_PINS);
@@ -49,6 +53,7 @@ inline void write(char character) {
   }
   volatile_write<uint32_t>(THR, character);
 }
+
 // String version
 inline void write_string(const char *str) {
   if (!str) {
@@ -59,6 +64,7 @@ inline void write_string(const char *str) {
     write(*str++);
   }
 }
+
 // Hex version
 constexpr inline void write_hex(unsigned int value) {
   write('0');
@@ -120,5 +126,29 @@ inline void printf(const char *format, T value, Args... args) {
     }
   }
 }
+inline char read() {
+  uint32_t status;
 
+  for (;;) {
+    // 1. Read the current status from the Status Register (SR)
+    status = volatile_read<uint32_t>(SR);
+
+    // 2. Handle Errors (clearing the error status)
+    if (status & (FRAME | OVRE)) {
+      printf("Serial Read Error: %x\n", status & (FRAME | OVRE));
+
+      // Clear the error flags
+      volatile_write(CR, RSTSTA);
+
+      // Continue the loop to get a fresh status
+      continue;
+    }
+
+    // 3. Check for Data Ready
+    if (status & RXRDY) {
+      // Data is ready, read the character from the Receive Holding Register
+      return (char)volatile_read<uint32_t>(RHR);
+    }
+  }
+}
 } // namespace dbgu
