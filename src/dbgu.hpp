@@ -31,7 +31,7 @@ uint32_t constexpr TXRDY = 1 << 1;
 uint32_t constexpr FRAME = 1 << 6;
 uint32_t constexpr RSTSTA = 1 << 8;
 uint32_t constexpr OVRE = 1 << 5;
-uint32_t constexpr RXRDY = 0;
+uint32_t constexpr RXRDY = 1 << 0;
 inline void init() {
   // multiplexing: select peripheral, don't use the pin as GPIO
   volatile_write(PIOA + PIO_PDR, DBGU_PINS);
@@ -143,7 +143,6 @@ inline char read() {
       // Continue the loop to get a fresh status
       continue;
     }
-
     // 3. Check for Data Ready
     if (status & RXRDY) {
       // Data is ready, read the character from the Receive Holding Register
