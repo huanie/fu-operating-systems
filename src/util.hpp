@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+
+// Portux920t (AT91RM9200) master clock ≈49.152 MHz for DBGU and timers
+constexpr uint32_t MASTER_CLOCK_HZ = 49'152'000;
 template <typename T>
 inline constexpr void volatile_write(uintptr_t addr, T value) {
   *reinterpret_cast<volatile T *>(addr) = value;

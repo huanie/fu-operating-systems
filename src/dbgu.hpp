@@ -5,8 +5,9 @@
 // AT91RM9200
 // 26.5 Debug Unit User Interface
 namespace dbgu {
-uint32_t constexpr MASTER_CLOCK = 49;
-uint32_t constexpr BAUDRATE = MASTER_CLOCK / (16 * 115200);
+constexpr uint32_t BAUD_RATE = 115200;
+constexpr uint32_t BRGR_VALUE =
+    (MASTER_CLOCK_HZ + (BAUD_RATE * 8)) / (BAUD_RATE * 16);  // rounded value
 uint32_t constexpr BASE = 0xfffff200;
 uint32_t constexpr CR = BASE + 0x0;
 uint32_t constexpr MR = BASE + 0x4;
@@ -40,7 +41,7 @@ inline void init() {
   volatile_write(PIOA + PIO_ASR, DBGU_PINS);
 
   // set baudrate
-  volatile_write(BRGR, BAUDRATE);
+  volatile_write(BRGR, BRGR_VALUE);
 
   // set the mode
   volatile_write(MR, CHMOD | PAR);
@@ -49,10 +50,22 @@ inline void init() {
   volatile_write(CR, RSTTX | RSTRX | RXEN | TXEN);
 }
 inline void write(char character) {
-  // wait until receiver is ready
+  // wait until transmitter is ready
   while (!(volatile_read<uint32_t>(SR) & TXRDY)) {
   }
   volatile_write<uint32_t>(THR, character);
+}
+
+// Wait until TX buffer is empty
+inline void flush() {
+  // Wait for TX shift register to drain
+  // Ensures the last byte is transmitted
+  while (!(volatile_read<uint32_t>(SR) & TXRDY)) {
+  }
+  // Small delay to guarantee completion
+  for (int i = 0; i < 10000; i++) {
+    __asm__ volatile("nop");
+  }
 }
 
 // String version
@@ -130,28 +143,51 @@ inline void printf(const char *format, T value, Args... args) {
     }
   }
 }
-inline char read() {
-  uint32_t status;
 
-  for (;;) {
-    // 1. Read the current status from the Status Register (SR)
-    status = volatile_read<uint32_t>(SR);
+namespace {
+  constexpr uint8_t RX_BUFFER_SIZE = 64;
+  inline volatile char g_rx_buffer[RX_BUFFER_SIZE];
+  inline volatile uint8_t g_rx_head = 0;
+  inline volatile uint8_t g_rx_tail = 0;
+  inline volatile bool g_rx_overflow = false;
+}
 
-    // 2. Handle Errors (clearing the error status)
-    if (status & (FRAME | OVRE)) {
-      printf("Serial Read Error: %x\n", status & (FRAME | OVRE));
+inline void enable_rx_interrupt() {
+  volatile_write(IER, RXRDY);
+}
 
-      // Clear the error flags
-      volatile_write(CR, RSTSTA);
+inline void handle_rx_interrupt(char c) {
+  uint8_t next = (g_rx_head + 1) % RX_BUFFER_SIZE;
+  if (next == g_rx_tail) {
+    g_rx_overflow = true;
+    return;
+  }
+  g_rx_buffer[g_rx_head] = c;
+  g_rx_head = next;
+}
 
-      // Continue the loop to get a fresh status
-      continue;
-    }
-    // 3. Check for Data Ready
-    if (status & RXRDY) {
-      // Data is ready, read the character from the Receive Holding Register
-      return (char)volatile_read<uint32_t>(RHR);
+inline bool pop_char(char &c) {
+  if (g_rx_head == g_rx_tail) {
+    return false;
+  }
+  c = g_rx_buffer[g_rx_tail];
+  g_rx_tail = (g_rx_tail + 1) % RX_BUFFER_SIZE;
+  return true;
+}
+
+inline bool has_pending_char() {
+  return g_rx_head != g_rx_tail;
+}
+
+inline void output_repeated_char(char c, int repeat = 25, int delay_loops = 50000) {
+  for (int i = 0; i < repeat; i++) {
+    write(c);
+    for (int j = 0; j < delay_loops; j++) {
+      __asm__ volatile("nop");
     }
   }
+  write('\r');
+  write('\n');
 }
+
 } // namespace dbgu
