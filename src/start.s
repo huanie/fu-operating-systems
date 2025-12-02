@@ -24,9 +24,9 @@ _start:
     msr cpsr_c, #MODE_SYSTEM
     ldr sp, =__stack_top_system
     bl init_interrupts
-    @ @ user mode
-    @ msr cpsr_c, #MODE_USER
-    @ ldr sp, =__stack_top_user
+    @ user mode
+    msr cpsr_c, #MODE_USER
+    ldr sp, =__stack_top_user
     bl main
 
 .end:

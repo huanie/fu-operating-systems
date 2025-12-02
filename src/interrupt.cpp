@@ -116,16 +116,16 @@ constexpr uint32_t SOFTWARE = 0x8;
 constexpr uint32_t UNDEFINED_INSTRUCTION = 0x4;
 constexpr uint32_t IRQ = 0x18;
 
-consteval uint32_t vector(int index) {
+consteval uint32_t interrupt_vector(int index) {
   // That's where the addresses of the interrupt handlers are stored
   constexpr uint32_t VECTOR = 0x30;
   return VECTOR + index * sizeof(uint32_t);
 }
 extern "C" void interrupt::init_interrupts() {
   // load instructions to load the handlers into PC
-  install_interrupt_handler<DATA_ABORT, vector(0)>(&data_abort);
-  install_interrupt_handler<SOFTWARE, vector(1)>(&software);
-  install_interrupt_handler<UNDEFINED_INSTRUCTION, vector(2)>(
+  install_interrupt_handler<DATA_ABORT, interrupt_vector(0)>(&data_abort);
+  install_interrupt_handler<SOFTWARE, interrupt_vector(1)>(&software);
+  install_interrupt_handler<UNDEFINED_INSTRUCTION, interrupt_vector(2)>(
       &undefined_instruction);
 }
 

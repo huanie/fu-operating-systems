@@ -93,4 +93,3 @@ namespace system_timer {
     return true;
   }
 } // namespace system_timer
-
