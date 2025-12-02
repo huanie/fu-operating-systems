@@ -9,4 +9,7 @@ extern "C" void init_interrupts();
 void data_abort();
 void software();
 void undefined_instruction();
+extern "C" void irq_handler();
+extern "C" void init_hardware_interrupts();
+extern "C" void start_system_timer();
 } // namespace interrupt
