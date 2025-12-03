@@ -165,7 +165,7 @@ void __attribute__((interrupt("IRQ"))) interrupt::irq_handler() {
 }
 
 extern "C" void interrupt::init_hardware_interrupts() {
-  install_interrupt_handler<IRQ, vector(3)>(&irq_handler);
+  install_interrupt_handler<IRQ, interrupt_vector(3)>(&irq_handler);
   
   // Configure DBGU source first to receive keys
   aic::configure_source(aic::IRQ_SOURCE_DBGU, 
