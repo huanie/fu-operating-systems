@@ -69,7 +69,7 @@ namespace system_timer {
   }
 
   // QEMU without icount runs extremely fast, so we aggregate many ticks into one.
-  constexpr uint32_t HOST_TICK_DIVIDER = 200000;  // Large value keeps ticks sparse
+  constexpr uint32_t HOST_TICK_DIVIDER = 8000;  // Large value keeps ticks sparse
   inline bool suppress_timer_output = false;
   inline void set_suppressed(bool value) { suppress_timer_output = value; }
   inline bool is_suppressed() {
