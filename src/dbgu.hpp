@@ -1,4 +1,5 @@
 #pragma once
+#include "aic.hpp"
 #include "pio.hpp"
 #include "util.hpp"
 #include <stdint.h>
@@ -39,13 +40,6 @@ constexpr uint32_t RSTSTA = 1 << 8;
 constexpr uint32_t OVRE = 1 << 5;
 constexpr uint32_t RXRDY = 1 << 0;
 
-// Receive buffer constants
-constexpr uint8_t RX_BUFFER_SIZE = 64;
-static inline volatile char rx_buffer[RX_BUFFER_SIZE];
-static inline volatile uint8_t rx_head = 0;
-static inline volatile uint8_t rx_tail = 0;
-static inline volatile bool rx_overflow = false;
-
 inline void init() {
   // multiplexing: select peripheral, don't use the pin as GPIO
   volatile_write(pio::PIOA + pio::PIO_PDR, pio::DBGU_PINS);
@@ -60,7 +54,17 @@ inline void init() {
 
   // reset transmitter and receiver, and enable
   volatile_write(CR, RSTTX | RSTRX | RXEN | TXEN);
+
+  // enable receive interrupt
+  volatile_write(IER, RXRDY);
+
+  // register the interrupt
+  aic::enable_interrupt<aic::SYSIRQ>();
 }
+
+void interrupt();
+
+char read();
 
 // Write single character
 inline void write(char character) {
@@ -68,14 +72,6 @@ inline void write(char character) {
   while (!(volatile_read<uint32_t>(SR) & TXRDY)) {
   }
   volatile_write<uint32_t>(THR, character);
-}
-
-// Wait for transmit buffer to empty
-inline void flush() {
-  // Wait for TX shift register to drain
-  // Ensures the last byte is transmitted
-  while (!(volatile_read<uint32_t>(SR) & TXRDY)) {
-  }
 }
 
 // Write string
@@ -154,45 +150,5 @@ inline void printf(const char *format, T value, Args... args) {
       ++format;
     }
   }
-}
-
-// Enable receive interrupt
-inline void enable_rx_interrupt() { volatile_write(IER, RXRDY); }
-
-// Handle receive interrupt
-inline void handle_rx_interrupt(char c) {
-  uint8_t next = (rx_head + 1) % RX_BUFFER_SIZE;
-  if (next == rx_tail) {
-    rx_overflow = true;
-    return;
-  }
-  rx_buffer[rx_head] = c;
-  rx_head = next;
-}
-
-// Pop character from buffer
-inline bool pop_char(char &c) {
-  if (rx_head == rx_tail) {
-    return false;
-  }
-  c = rx_buffer[rx_tail];
-  rx_tail = (rx_tail + 1) % RX_BUFFER_SIZE;
-  return true;
-}
-
-// Check if there are pending characters
-inline bool has_pending_char() { return rx_head != rx_tail; }
-
-// Output repeated character (for testing)
-inline void output_repeated_char(char c, int repeat = 25,
-                                 int delay_loops = 50000) {
-  for (int i = 0; i < repeat; i++) {
-    write(c);
-    for (int j = 0; j < delay_loops; j++) {
-      __asm__ volatile("nop");
-    }
-  }
-  write('\r');
-  write('\n');
 }
 } // namespace dbgu

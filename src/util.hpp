@@ -8,13 +8,27 @@ inline constexpr void volatile_write(uintptr_t addr, T value) {
   *reinterpret_cast<volatile T *>(addr) = value;
 }
 
+inline void __attribute__((naked)) no_operation() { __asm__ volatile("nop"); }
+
+// Do not let the compiler reorder code
+inline void barrier() { __asm__("" ::: "memory"); }
+
 template <typename T> inline constexpr auto volatile_read(uintptr_t addr) -> T {
   return *reinterpret_cast<volatile T *>(addr);
 }
 
+inline void busy_wait(uint32_t usec) {
+  // 180 MHz CPU speed
+  // One iteration takes 2 instructions that need 4 clock cycles
+  auto loops = usec * (180 / 4);
+  while (loops--) {
+    barrier();
+  }
+}
+
 template <typename T>
 constexpr bool is_char_type = __is_same(T, char) || __is_same(T, signed char) ||
-			      __is_same(T, unsigned char);
+                              __is_same(T, unsigned char);
 
 template <typename T>
 constexpr bool is_string_type =
