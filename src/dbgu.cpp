@@ -6,10 +6,10 @@
 #define RX_BUFFSIZE (1 << RX_BUFFSHIFT)
 #define RX_BUFFMASK (RX_BUFFSIZE - 1)
 
-static char rx_buff[RX_BUFFSIZE];
+static constinit char rx_buff[RX_BUFFSIZE];
 
-static volatile unsigned int rx_head = 0xfffffff8;
-static volatile unsigned int rx_tail = 0xfffffff8;
+static constinit volatile unsigned int rx_head = 0xfffffff8;
+static constinit volatile unsigned int rx_tail = 0xfffffff8;
 inline void rx_buff_putc(char c) {
   // ignore when buffer is full
   if (rx_head - rx_tail >= RX_BUFFSIZE) {

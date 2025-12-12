@@ -1,4 +1,5 @@
 #include "exception.hpp"
+#include "aic.hpp"
 #include "dbgu.hpp"
 #include "system_timer.hpp"
 #include "util.hpp"
@@ -19,8 +20,10 @@ void __attribute__((interrupt("UNDEF"))) undefined_instruction() {
 }
 
 void __attribute__((interrupt("IRQ"))) irq() {
+  aic::start();
   system_timer::interrupt();
   dbgu::interrupt();
+  aic::end();
 }
 
 template <uint32_t target, uint32_t destination>
@@ -60,5 +63,6 @@ extern "C" void exception::init_exceptions() {
   install_exception_handler<SOFTWARE, exception_vector(1)>(&software);
   install_exception_handler<UNDEFINED_INSTRUCTION, exception_vector(2)>(
       &undefined_instruction);
-  install_exception_handler<IRQ, exception_vector(2)>(&irq);
+  volatile_write(IRQ, INTERRUPT_VECTOR_TRAMPOLINE);
+  aic::enable_interrupt<aic::SYSIRQ>(irq);
 }

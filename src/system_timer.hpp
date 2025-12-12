@@ -1,7 +1,6 @@
 #pragma once
 
 #include "aic.hpp"
-#include "dbgu.hpp"
 #include "util.hpp"
 #include <stdint.h>
 
@@ -22,10 +21,11 @@ constexpr uint32_t IMR = BASE + 0x1C;   // Interrupt Mask Register
 // control
 constexpr uint32_t PITS = 1 << 0; // Period Interval Timer Status
 
+void interrupt();
+
 inline void init() {
   // enable periodic timer
   volatile_write(IER, PITS);
-  aic::enable_interrupt<aic::SYSIRQ>();
 }
 
 inline void set_interval(uint32_t msec) {
@@ -35,9 +35,5 @@ inline void set_interval(uint32_t msec) {
     volatile_write(PIMR, (32768 * msec) / 1000);
   }
 }
-inline void interrupt() {
-  if (volatile_read<uint32_t>(SR) & PITS) {
-    dbgu::printf("!\n");
-  }
-}
+
 } // namespace system_timer

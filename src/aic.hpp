@@ -1,11 +1,11 @@
 #pragma once
 #include "util.hpp"
 #include <stdint.h>
-
 namespace aic {
+using VoidFunction = auto (*)(void) -> void;
 constexpr auto SYSIRQ = 1;
-constexpr uint32_t BASE = 0xFFFFF000;
 
+constexpr uint32_t BASE = 0xFFFFF000;
 constexpr uint32_t SMR =
     BASE + 0x00; // Source Mode Register (32 sources, 4 bytes)
 constexpr uint32_t SVR =
@@ -26,11 +26,22 @@ template <uint32_t Index> auto inline _interrupt_source() {
   return SMR + Index * sizeof(uint32_t);
 }
 
-template <uint32_t Interrupt> inline void enable_interrupt() {
+template <uint32_t Index> auto inline _interrupt_vector() {
+  return SVR + Index * sizeof(uint32_t);
+}
+
+template <uint32_t Interrupt>
+inline void enable_interrupt(VoidFunction handler) {
   static_assert(Interrupt <= 32, "There are only 32 interrupt lines");
   // install interrupt at the corresponding source and set line
   // level-sensitivity and priority to 0
   volatile_write(_interrupt_source<Interrupt>(), 0);
-  volatile_write(IECR, 1 << Interrupt);
+  volatile_write(_interrupt_vector<Interrupt>(),
+                 reinterpret_cast<uint32_t>(handler));
+  volatile_write(IECR, 1 << SYSIRQ);
 }
+
+inline void end() { volatile_write(EOICR, 666); }
+
+inline void start() { volatile_read<uint32_t>(IVR); }
 } // namespace aic

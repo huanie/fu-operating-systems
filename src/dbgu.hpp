@@ -1,5 +1,4 @@
 #pragma once
-#include "aic.hpp"
 #include "pio.hpp"
 #include "util.hpp"
 #include <stdint.h>
@@ -40,6 +39,8 @@ constexpr uint32_t RSTSTA = 1 << 8;
 constexpr uint32_t OVRE = 1 << 5;
 constexpr uint32_t RXRDY = 1 << 0;
 
+void interrupt();
+
 inline void init() {
   // multiplexing: select peripheral, don't use the pin as GPIO
   volatile_write(pio::PIOA + pio::PIO_PDR, pio::DBGU_PINS);
@@ -57,12 +58,7 @@ inline void init() {
 
   // enable receive interrupt
   volatile_write(IER, RXRDY);
-
-  // register the interrupt
-  aic::enable_interrupt<aic::SYSIRQ>();
 }
-
-void interrupt();
 
 char read();
 
