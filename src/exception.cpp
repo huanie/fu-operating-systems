@@ -20,7 +20,6 @@ void __attribute__((interrupt("UNDEF"))) undefined_instruction() {
 }
 
 void __attribute__((interrupt("IRQ"))) irq() {
-  aic::start();
   system_timer::interrupt();
   dbgu::interrupt();
   aic::end();
