@@ -1,14 +1,12 @@
 #pragma once
 #include <stdint.h>
 
-template <typename T, auto Size> class CircularList {
+template <typename T, auto Size> struct CircularList {
   struct Node {
     T item = {};
     Node *next;
   };
   Node list[Size];
-
-public:
   consteval CircularList() {
     list[Size - 1].next = &list[0];
     for (auto i = 0; i < Size - 1; ++i) {

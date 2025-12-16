@@ -1,4 +1,5 @@
 #include "dbgu.hpp"
+#include "thread.hpp"
 #include "util.hpp"
 #include <stdint.h>
 
@@ -32,10 +33,17 @@ inline char rx_buff_getc(void) {
   return c;
 }
 
-void dbgu::interrupt() {
+[[gnu::noinline]] void dummy(uint8_t arg) {
+  for (auto i = 0; i < 10; ++i) {
+    dbgu::printf("%c", arg);
+    busy_wait(500);
+  }
+}
+#include "thread.hpp"
+extern "C" [[gnu::used]] void dbgu::dbgu_interrupt() {
   // did we get a character?
   if (volatile_read<uint32_t>(dbgu::SR) & dbgu::RXRDY) {
-    rx_buff_putc(volatile_read<char>(dbgu::RHR));
+    thread::create(dummy, volatile_read<char>(dbgu::RHR));
   }
 }
 

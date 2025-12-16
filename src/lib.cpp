@@ -9,6 +9,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
     *d++ = *s++;
   return dest;
 }
+
 [[gnu::used]]
 void *memset(void *dest, int c, size_t n) {
   unsigned char *d = static_cast<unsigned char *>(dest);

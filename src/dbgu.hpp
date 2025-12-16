@@ -39,7 +39,7 @@ constexpr uint32_t RSTSTA = 1 << 8;
 constexpr uint32_t OVRE = 1 << 5;
 constexpr uint32_t RXRDY = 1 << 0;
 
-void interrupt();
+extern "C" void dbgu_interrupt();
 
 inline void init() {
   // multiplexing: select peripheral, don't use the pin as GPIO

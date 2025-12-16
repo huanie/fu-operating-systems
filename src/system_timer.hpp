@@ -1,6 +1,5 @@
 #pragma once
 
-#include "aic.hpp"
 #include "util.hpp"
 #include <stdint.h>
 
@@ -21,7 +20,7 @@ constexpr uint32_t IMR = BASE + 0x1C;   // Interrupt Mask Register
 // control
 constexpr uint32_t PITS = 1 << 0; // Period Interval Timer Status
 
-void interrupt();
+extern "C" void system_timer_interrupt();
 
 inline void init() {
   // enable periodic timer

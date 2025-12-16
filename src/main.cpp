@@ -1,19 +1,17 @@
 #include "cpu.hpp"
 #include "dbgu.hpp"
+#include "stddef.h"
 #include "system_timer.hpp"
-#include "util.hpp"
+#include "thread.hpp"
 
-extern "C" __attribute__((section(".init"), noinline)) void main() {
+extern "C" __attribute__((section(".init"), noinline, noreturn)) void main() {
+  thread::init();
   dbgu::init();
-  dbgu::printf("Hello World\n");
   system_timer::init();
-  system_timer::set_interval(200);
+  system_timer::set_interval(500);
   cpu::enable_irq();
+  // it should not go into this code since the scheduler should select the idle
+  // thread
   while (true) {
-    auto c = dbgu::read();
-    for (auto i = 0; i < 10; ++i) {
-      dbgu::printf("%c", c);
-      busy_wait(500);
-    }
   }
 }
