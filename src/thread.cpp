@@ -1,9 +1,7 @@
 #include "thread.hpp"
-#include "dbgu.hpp"
 #include <stdint.h>
 __attribute__((noinline, noreturn)) void thread::idle_thread(uint8_t) {
   while (1) {
-    dbgu::write('t');
   }
 }
 

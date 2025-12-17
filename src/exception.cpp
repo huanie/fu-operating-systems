@@ -28,30 +28,29 @@ using namespace thread;
 
 @ adjust the pc, the interrupt will set lr as the previous pc
 sub lr, lr, #4
-@ save on the exception stack at first
-push {r0-r12}
-@ save sp and lr (user)
-stmfd sp!, {r13, r14}^
+@ save on the exception stack at first because r12 is my tcb pointer
+push {r12}
 
 @ get the current thread
-ldr r0, =thread_current
-ldr r0, [r0]
-
-@ store cpsr
-mrs r1, spsr
-str r1, [r0, %[cpsr_offset]]
-
-@ r1 has sp, r2 has lr (user)
-ldmfd sp!, {r1, r2}
-str r1, [r0, %[sp_offset]]
-str r2, [r0, %[lr_offset]]
+ldr r12, =thread_current
+ldr r12, [r12]
 
 @ save r0-r11
-ldmfd sp!, {r1-r12} @ pop value r0 into r1, r1 into r2, ...
-stmia r0, {r1-r12}
+stmia r12!, {r0-r11} @ r12 is at tcb.r12
+pop {r0} @ previous.r12 is in r0
+stmia r12!, {r0}
+
+@ store usr sp and lr
+stmia r12, {sp, lr}^
+add r12, r12, #8 @ manual advance because writeback! is not allowed in ^
 
 @ save pc (lr irq, adjusted earlier)
-str lr, [r0, %[pc_offset]]
+stmia r12!, {lr}
+
+@ save cpsr
+mrs r1, spsr
+stmia r12, {r1}
+
 @================== Handle interrupt ===============
 bl system_timer_interrupt
 bl dbgu_interrupt
@@ -61,26 +60,12 @@ bl dbgu_interrupt
 ldr r0, =thread_current
 ldr r0, [r0]
 
-@ Restore cpsr to spsr (will be restored to cpsr on return)
+@ set the cpsr
 ldr r1, [r0, %[cpsr_offset]]
-msr spsr_cxsf, r1
+msr spsr, r1
 
-@ restore r0-r12 (r0 will be overwritten, so save TCB pointer in r1 temporarily)
-mov r1, r0
-@ load user mode sp and lr into IRQ mode registers before restoring r0-r12
-ldr r2, [r1, %[sp_offset]]  @ load sp from TCB into r2 (IRQ mode)
-ldr r3, [r1, %[lr_offset]]  @ load lr from TCB into r3 (IRQ mode)
-@ push to IRQ stack so we can restore to user mode
-stmfd sp!, {r2, r3}
-@ now restore r0-r12 (this will overwrite r2 and r3, but we've already saved sp/lr)
-ldmia r1!, {r0-r12}
-@ restore user mode sp and lr from IRQ stack
-ldmfd sp!, {r13, r14}^  @ restore to user mode sp and lr
+ldmia r0, {r0-r12, r13, r14, r15}^
 
-@ TODO cannot just do that
-
-@ restore pc and return from interrupt (restores cpsr from spsr)
-ldr pc, [r1, #8]   @ pc is at offset 8 from r1 (r1 was incremented by ldmia)
                     )"
                    :
                    : [cpsr_offset] "i"(offsetof(ThreadControlBlock, cpsr)),

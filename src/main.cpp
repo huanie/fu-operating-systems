@@ -10,8 +10,8 @@ extern "C" __attribute__((section(".init"), noinline, noreturn)) void main() {
   system_timer::init();
   system_timer::set_interval(500);
   cpu::enable_irq();
-  // it should not go into this code since the scheduler should select the idle
-  // thread
+  thread::idle_thread(0);
+  // it should not go into this code
   while (true) {
   }
 }
