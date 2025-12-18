@@ -29,8 +29,8 @@ _start:
     @ system mode
     SET_STACK #MODE_SYSTEM, __stack_top_system
 
-    bl init_exceptions
-    bl main
+    @ bl init_exceptions
+    bl kernel_main
 
 .end:
     b .end
