@@ -35,6 +35,7 @@ _start:
 .end:
     b .end
 
+@ CPU modes
 .equ MODE_FIQ, 0b10001
 .equ MODE_IRQ, 0b10010
 .equ MODE_SUPERVISOR, 0b10011
@@ -46,5 +47,21 @@ _start:
 .equ FINTERRUPT_BIT, 1 << 6
 .equ INTERRUPTS_DISABLED, (INTERRUPT_BIT | FINTERRUPT_BIT) @ All modes start disabled
 
+@ Stack configuration constants
+.equ RAM_ORIGIN, 0x00200000
+.equ RAM_LENGTH, 16 * 1024  @ 16K
+.equ STACK_SIZE_EXC, 0x100
+
+.equ __stack_top, RAM_ORIGIN + RAM_LENGTH
+.equ __stack_end, RAM_ORIGIN
+.equ __stack_top_fiq, __stack_top
+.equ __stack_top_irq, __stack_top_fiq - STACK_SIZE_EXC
+.equ __stack_top_abort, __stack_top_irq - STACK_SIZE_EXC
+.equ __stack_top_undefined, __stack_top_abort - STACK_SIZE_EXC
+.equ __stack_top_supervisor, __stack_top_undefined - STACK_SIZE_EXC
+.equ __stack_top_system, __stack_top_supervisor - STACK_SIZE_EXC
+.equ __stack_top_user, __stack_top_system
+
+@ Memory remap definition
 .equ REMAP_CONTROL_REGISTER, 0xFFFFFF00
 .equ REMAP_COMMAND_BIT, 1 << 0
