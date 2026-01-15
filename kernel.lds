@@ -5,7 +5,7 @@ MEMORY
 	RAM (rwx) : ORIGIN = 0x00200000, LENGTH = 16K
 }
 __stack_size_exc = 0x100;
-__stack_top = ORIGIN(RAM) + LENGTH(RAM);
+__stack_top = ORIGIN(RAM) + 16K;
 __stack_end = ORIGIN(RAM);
 
 __stack_top_fiq = __stack_top;
