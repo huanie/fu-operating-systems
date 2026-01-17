@@ -52,6 +52,7 @@ _start:
 .equ RAM_LENGTH, 16 * 1024  @ 16K
 .equ STACK_SIZE_EXC, 0x100
 
+.global __stack_top_user
 .equ __stack_top, RAM_ORIGIN + RAM_LENGTH
 .equ __stack_end, RAM_ORIGIN
 .equ __stack_top_fiq, __stack_top

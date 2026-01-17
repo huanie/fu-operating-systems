@@ -28,7 +28,8 @@ pub struct ThreadControlBlock {
     pub pc: usize,   // Return address (adjusted IRQ LR)
     pub cpsr: usize, // Saved CPSR (SPSR in IRQ mode)
 
-    pub handler: extern "C" fn() -> (),
+    pub handler: extern "C" fn(usize) -> (),
     pub state: State,
     pub id: usize,
+    pub argument: usize,
 }

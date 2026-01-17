@@ -1,7 +1,10 @@
-use crate::hardware_register::Register;
+use crate::println;
+use crate::thread::mutex::Mutex;
+use crate::thread::schedule::SCHEDULER;
+use crate::util::busy_wait;
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
-use core::ptr;
+use core::ptr::{self, addr_of_mut, read_volatile, write_volatile};
 use ufmt::uWrite;
 
 const BUFFER_LENGTH: usize = 32;
@@ -10,18 +13,19 @@ static mut BUFFER_SIZE: usize = 0;
 
 #[repr(C)]
 pub struct Dbgu {
-    cr: Register,   // 0x00
-    mr: Register,   // 0x04
-    ier: Register,  // 0x08
-    idr: Register,  // 0x0c
-    imr: Register,  // 0x10
-    sr: Register,   // 0x14
-    rhr: Register,  // 0x18
-    thr: Register,  // 0x1c
-    brgr: Register, // 0x20
+    cr: u32,   // 0x00
+    mr: u32,   // 0x04
+    ier: u32,  // 0x08
+    idr: u32,  // 0x0c
+    imr: u32,  // 0x10
+    sr: u32,   // 0x14
+    rhr: u32,  // 0x18
+    thr: u32,  // 0x1c
+    brgr: u32, // 0x20
 }
 
-pub const DBGU: *mut Dbgu = 0xfffff200 as *mut _;
+//pub const DBGU: *mut Dbgu = ;
+pub static DBGU: Mutex<*mut Dbgu> = Mutex::new(0xfffff200 as *mut _);
 const RXEN: u32 = 1 << 4;
 const RSTRX: u32 = 1 << 2;
 const TXEN: u32 = 1 << 6;
@@ -33,23 +37,37 @@ const RXRDY: u32 = 1 << 0;
 
 impl Dbgu {
     fn write_character(&mut self, c: char) {
-        while self.sr.read() & TXRDY == 0 {}
-        self.thr.write(c as u32);
+        unsafe {
+            while read_volatile(&self.sr) & TXRDY == 0 {}
+            write_volatile(&mut self.thr, c as u32);
+        }
+    }
+}
+#[inline(never)]
+extern "C" fn handler(c: usize) {
+    let x = c as u8 as char;
+    for _ in 0..10 {
+        write(x);
+        busy_wait(1_000_000);
     }
 }
 
 #[unsafe(export_name = "dbgu_interrupt")]
 pub extern "C" fn interrupt() {
     unsafe {
-        if (*DBGU).sr.read() & RXRDY != 0 {
-            push_buffer((*DBGU).rhr.read() as u8 as char);
+        let dbgu = DBGU.lock();
+        if read_volatile(&(**dbgu).sr) & RXRDY != 0 {
+            let c = read_volatile(&(**dbgu).rhr) as usize;
+            drop(dbgu);
+            (*addr_of_mut!(SCHEDULER)).spawn(handler, c);
         }
     }
 }
 
 pub fn write(c: char) {
     unsafe {
-        (*DBGU).write_character(c);
+        let dbgu = *DBGU.lock();
+        (*dbgu).write_character(c);
     }
 }
 
@@ -93,9 +111,10 @@ fn pop_buffer() -> char {
 #[inline]
 pub fn init() {
     unsafe {
-        (*DBGU).mr.write(CHMOD | PAR);
-        (*DBGU).cr.write(RSTTX | RSTRX | RXEN | TXEN);
-        (*DBGU).ier.write(RXRDY);
+        let dbgu = &mut **DBGU.lock();
+        write_volatile(&mut dbgu.mr, CHMOD | PAR);
+        write_volatile(&mut dbgu.cr, RSTTX | RSTRX | RXEN | TXEN);
+        write_volatile(&mut dbgu.ier, RXRDY);
     }
 }
 
@@ -104,7 +123,7 @@ impl uWrite for Dbgu {
 
     fn write_str(&mut self, s: &str) -> Result<(), Self::Error> {
         for c in s.chars() {
-            unsafe { (*DBGU).write_character(c) }
+            self.write_character(c)
         }
         Ok(())
     }
@@ -112,11 +131,11 @@ impl uWrite for Dbgu {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:expr)*) => (ufmt::uwrite!(unsafe {&mut *$crate::dbgu::DBGU}, $($arg,)*));
+    ($($arg:expr),*) => (ufmt::uwrite!(unsafe { &mut **$crate::dbgu::DBGU.lock() }, $($arg,)*));
 }
 
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
-    ($($arg:expr),*) => (ufmt::uwriteln!(unsafe {&mut *$crate::dbgu::DBGU}, $($arg,)*));
+    ($($arg:expr),*) => (ufmt::uwriteln!(unsafe {&mut **$crate::dbgu::DBGU.lock() }, $($arg,)*));
 }

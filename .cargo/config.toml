@@ -7,6 +7,7 @@ rustflags = [
     "-C", "link-arg=--gc-sections",
     "-C", "link-arg=--nmagic",              # No page alignment
     "-C", "link-arg=--strip-all",           # Strip all symbols
+    "-C", "no-redzone",
 ]
 
 [unstable]

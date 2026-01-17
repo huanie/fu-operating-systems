@@ -10,7 +10,7 @@ pub struct MutexGuard<'a, T> {
 }
 
 impl<T> Mutex<T> {
-    pub fn new(o: T) -> Self {
+    pub const fn new(o: T) -> Self {
         Self {
             locked: UnsafeCell::new(false),
             inner: UnsafeCell::new(o),

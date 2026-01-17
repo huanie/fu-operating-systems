@@ -25,9 +25,8 @@ pub fn set_interval<const MSEC: u32>() {
 }
 
 #[unsafe(export_name = "system_timer_interrupt")]
-pub extern "C" fn interrupt() {
+extern "C" fn interrupt() {
     if unsafe { (SR as *mut u32).read_volatile() } & PITS != 0 {
-        println!("!");
         unsafe {
             (*core::ptr::addr_of_mut!(SCHEDULER)).change_next();
         }
