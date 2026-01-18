@@ -46,7 +46,7 @@ extern "C" fn init_exceptions() {
 }
 
 #[unsafe(no_mangle)]
-extern "C" fn data_abort() -> ! {
+extern "C" fn data_abort() {
     println!("Data abort");
     loop {
         spin_loop();
@@ -54,7 +54,7 @@ extern "C" fn data_abort() -> ! {
 }
 
 #[unsafe(naked)]
-extern "C" fn irq() -> ! {
+extern "C" fn irq() {
     naked_asm!(
         // adjust the lr, the interrupt will set lr as the previous pc
         "sub lr, lr, #4",
@@ -63,13 +63,14 @@ extern "C" fn irq() -> ! {
         // the current thread,
         "ldr r12, ={current_thread}",
         "ldr r12, [r12]",
-        // save r0-r12
+        // save r0-r11
         "stmia r12!, {{r0-r11}}" ,
-        // r12 is now in r0
+        // restore original r12 value (popped from first push)
         "pop {{r0}}",
         "stmia r12!, {{r0}}",
         // store sp and lr from user mode
         "stmia r12, {{sp, lr}}^",
+        "nop",
         // manual add 8 because writeback is not allowed with ^
         "add r12, r12, #8",
         // save pc (which is lr in exception mode)
@@ -78,33 +79,35 @@ extern "C" fn irq() -> ! {
         "mrs r1, spsr",
         "stmia r12, {{r1}}",
         /* HANDLE INTERRUPT */
-        
+
         "bl system_timer_interrupt",
         "bl dbgu_interrupt",
 
         /* RESTORE CONTEXT */
-        "ldr r0, ={current_thread}",
-        "ldr r0, [r0]",
+        // restore from CURRENT_THREAD (which may have changed if we context switched)
+        "ldr lr, ={current_thread}",
+        "ldr lr, [lr]",
         // set cpsr
-        "ldr r1, [r0, #{cpsr_offset}]",
+        "ldr r1, [lr, #{cpsr_offset}]",
         "msr spsr, r1",
         // switch back
-        "ldmia r0, {{r0-r12, r13, r14, r15}}^",
+        "ldmia lr, {{r0-r12, r13, r14}}^",
+        "nop",
+        "ldr lr, [lr, #{pc_offset}]",
+        "movs pc, lr",
         current_thread = sym CURRENT_THREAD,
-        cpsr_offset = const core::mem::offset_of!(ThreadControlBlock, cpsr)
+        cpsr_offset = const core::mem::offset_of!(ThreadControlBlock, cpsr),
+        pc_offset = const core::mem::offset_of!(ThreadControlBlock, pc)
     )
 }
 
-#[unsafe(no_mangle)]
-extern "C" fn software() -> ! {
-    println!("software");
-    loop {
-        spin_loop();
-    }
+#[unsafe(naked)]
+extern "C" fn software() {
+    naked_asm!("")
 }
 
 #[unsafe(no_mangle)]
-extern "C" fn undefined_instruction() -> ! {
+extern "C" fn undefined_instruction() {
     println!("Undefined instruction");
     loop {
         spin_loop();
@@ -125,7 +128,7 @@ const fn encode_load(target: u32, destination: u32) -> u32 {
 fn install_exception_handler(
     target: Exception,
     destination: TrampolineIndex,
-    handler: extern "C" fn() -> !,
+    handler: extern "C" fn(),
 ) {
     let target = target as u32;
     let destination = *destination;

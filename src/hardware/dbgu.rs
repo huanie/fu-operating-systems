@@ -48,7 +48,7 @@ extern "C" fn handler(c: usize) {
     let x = c as u8 as char;
     for _ in 0..10 {
         write(x);
-        busy_wait(1_000_000);
+        busy_wait(1_100_000);
     }
 }
 

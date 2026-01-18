@@ -1,4 +1,3 @@
-use crate::println;
 use crate::thread::thread_control_block::{State, ThreadControlBlock};
 use core::hint::spin_loop;
 use core::ptr::addr_of_mut;
@@ -15,23 +14,16 @@ pub extern "C" fn idle_thread(_: usize) {
 }
 
 #[inline(never)]
-extern "C" fn start() {
+extern "C" fn start() -> ! {
     let current = unsafe { &*CURRENT_THREAD };
     let handler = current.handler;
     let arg = current.argument;
-
-    // Use a volatile pointer to force the compiler to generate a real call
-    unsafe {
-        let func: extern "C" fn(usize) -> () = core::ptr::read_volatile(&handler);
-        func(core::ptr::read_volatile(&arg));
-    }
-
+    handler(arg);
     end();
 }
 
 #[inline(never)]
-extern "C" fn end() {
-    println!("END");
+extern "C" fn end() -> ! {
     let current = unsafe { &mut *CURRENT_THREAD };
     current.state = State::Done;
     loop {
@@ -42,7 +34,7 @@ extern "C" fn end() {
 const IDLE_THREAD_ID: usize = 0;
 const STACK_SIZE: usize = 512;
 const NUMBER_OF_THREADS: usize = 16;
-const NEW_THREAD_CPSR: usize = 0x10;
+const NEW_THREAD_CPSR: usize = 0b10000;
 
 unsafe extern "C" {
     static __stack_top_user: usize;
@@ -88,13 +80,13 @@ impl<const SIZE: usize> Scheduler<SIZE> {
 
     pub fn change_next(&mut self) {
         let current = unsafe { &*CURRENT_THREAD }.id;
-        let mut next = &self.data[Self::next(current)];
+        let mut next = &mut self.data[Self::next(current)];
         while next.id != current {
             if next.state == State::Ready && next.id != IDLE_THREAD_ID {
-                unsafe { CURRENT_THREAD = addr_of_mut!(self.data[next.id]) }
+                unsafe { CURRENT_THREAD = next }
                 return;
             }
-            next = &self.data[Self::next(next.id)];
+            next = &mut self.data[Self::next(next.id)];
         }
 
         unsafe { CURRENT_THREAD = addr_of_mut!(self.data[IDLE_THREAD_ID]) }
@@ -105,7 +97,7 @@ impl<const SIZE: usize> Scheduler<SIZE> {
         for (i, thread) in self.data.iter_mut().enumerate() {
             if thread.state == State::Done {
                 // we use lr to jump back to the correct code
-                thread.lr = start as *const () as usize;
+                thread.lr = end as *const () as usize;
                 thread.handler = handler;
                 thread.pc = start as *const () as usize;
                 thread.sp = stack_head - i * STACK_SIZE;

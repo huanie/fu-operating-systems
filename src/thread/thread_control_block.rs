@@ -2,7 +2,6 @@
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum State {
     Done,
-    Running,
     Blocked,
     Ready,
 }
@@ -25,7 +24,7 @@ pub struct ThreadControlBlock {
     pub r12: usize,
     pub sp: usize,   // User mode SP (r13)
     pub lr: usize,   // User mode LR (r14)
-    pub pc: usize,   // Return address (adjusted IRQ LR)
+    pub pc: usize,   // User mode PC (r15)
     pub cpsr: usize, // Saved CPSR (SPSR in IRQ mode)
 
     pub handler: extern "C" fn(usize) -> (),
