@@ -26,6 +26,7 @@ extern "C" fn start() -> ! {
 extern "C" fn end() -> ! {
     let current = unsafe { &mut *CURRENT_THREAD };
     current.state = State::Done;
+
     loop {
         spin_loop();
     }

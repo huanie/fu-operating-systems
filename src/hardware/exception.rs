@@ -90,10 +90,12 @@ extern "C" fn irq() {
         // set cpsr
         "ldr r1, [lr, #{cpsr_offset}]",
         "msr spsr, r1",
-        // switch back
+        // restore the registers
         "ldmia lr, {{r0-r12, r13, r14}}^",
         "nop",
+        // load pc
         "ldr lr, [lr, #{pc_offset}]",
+        // switch back
         "movs pc, lr",
         current_thread = sym CURRENT_THREAD,
         cpsr_offset = const core::mem::offset_of!(ThreadControlBlock, cpsr),
