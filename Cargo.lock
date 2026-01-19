@@ -6,6 +6,7 @@ version = 4
 name = "freedumbs-os"
 version = "0.1.0"
 dependencies = [
+ "ringbuffer",
  "ufmt",
 ]
 
@@ -26,6 +27,12 @@ checksum = "dc74d9a594b72ae6656596548f56f667211f8a97b3d4c3d467150794690dc40a"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "ringbuffer"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57b0b88a509053cbfd535726dcaaceee631313cef981266119527a1d110f6d2b"
 
 [[package]]
 name = "syn"

@@ -1,9 +1,16 @@
-#[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum State {
     Done,
-    Blocked,
+    Blocked(BlockReason),
     Ready,
+}
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum BlockReason {
+    Read,
+    /// the time in clock cycles
+    Sleep {
+        time: usize,
+    },
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]

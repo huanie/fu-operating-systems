@@ -1,3 +1,6 @@
+use core::mem::MaybeUninit;
+use core::ops::{Index, IndexMut};
+
 #[inline(never)]
 pub fn busy_wait(usec: usize) {
     let loops = usec * 45;

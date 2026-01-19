@@ -1,15 +1,15 @@
-use crate::println;
-use crate::thread::mutex::Mutex;
-use crate::thread::schedule::SCHEDULER;
+use crate::hardware::cpu;
+use crate::thread::schedule::{CURRENT_THREAD, NUMBER_OF_THREADS, SCHEDULER};
 use crate::util::busy_wait;
 use core::convert::Infallible;
-use core::mem::MaybeUninit;
 use core::ptr::{self, addr_of_mut, read_volatile, write_volatile};
+use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 use ufmt::uWrite;
 
-const BUFFER_LENGTH: usize = 32;
-static mut BUFFER: [MaybeUninit<char>; BUFFER_LENGTH] = [MaybeUninit::uninit(); BUFFER_LENGTH];
-static mut BUFFER_SIZE: usize = 0;
+const BUFFER_SIZE: usize = 32;
+static mut READ_BUFFER: ConstGenericRingBuffer<char, BUFFER_SIZE> = ConstGenericRingBuffer::new();
+static mut READ_QUEUE: ConstGenericRingBuffer<usize, NUMBER_OF_THREADS> =
+    ConstGenericRingBuffer::new();
 
 #[repr(C)]
 pub struct Dbgu {
@@ -24,8 +24,7 @@ pub struct Dbgu {
     brgr: u32, // 0x20
 }
 
-//pub const DBGU: *mut Dbgu = ;
-pub static DBGU: Mutex<*mut Dbgu> = Mutex::new(0xfffff200 as *mut _);
+pub const DBGU: *mut Dbgu = 0xfffff200 as *mut _;
 const RXEN: u32 = 1 << 4;
 const RSTRX: u32 = 1 << 2;
 const TXEN: u32 = 1 << 6;
@@ -55,63 +54,49 @@ extern "C" fn handler(c: usize) {
 #[unsafe(export_name = "dbgu_interrupt")]
 pub extern "C" fn interrupt() {
     unsafe {
-        let dbgu = DBGU.lock();
+        let dbgu = &DBGU;
         if read_volatile(&(**dbgu).sr) & RXRDY != 0 {
             let c = read_volatile(&(**dbgu).rhr) as usize;
-            drop(dbgu);
-            (*addr_of_mut!(SCHEDULER)).spawn(handler, c);
+            if let Some(thread_id) = (&mut *addr_of_mut!(READ_QUEUE)).dequeue() {
+                let scheduler = &mut *addr_of_mut!(SCHEDULER);
+                scheduler.wakeup(thread_id);
+                let thread = scheduler.get_mut(thread_id);
+                thread.r0 = c;
+            } else {
+                (&mut *addr_of_mut!(READ_BUFFER)).enqueue(c as u8 as char);
+            }
         }
     }
 }
 
 pub fn write(c: char) {
     unsafe {
-        let dbgu = *DBGU.lock();
+        let dbgu = &mut *DBGU;
         (*dbgu).write_character(c);
     }
 }
 
-#[inline(always)]
+/// this will set the current thread as blocked
 pub fn read() -> char {
-    pop_buffer()
-}
-
-fn push_buffer(c: char) {
-    unsafe {
-        let index = ptr::read_volatile(&raw const BUFFER_SIZE);
-        // return if the buffer is full
-        if index >= BUFFER_LENGTH {
-            return;
-        }
-
-        BUFFER[index].write(c);
-
-        ptr::write_volatile(&raw mut BUFFER_SIZE, index + 1);
-    }
-}
-
-fn pop_buffer() -> char {
-    unsafe {
-        loop {
-            let index = ptr::read_volatile(&raw const BUFFER_SIZE);
-            if index > 0 {
-                break;
-            }
-        }
-
-        let index = ptr::read_volatile(&raw const BUFFER_SIZE);
-
-        let c = BUFFER[index - 1].assume_init();
-        ptr::write_volatile(&raw mut BUFFER_SIZE, index - 1);
-
+    if let Some(c) = unsafe { addr_of_mut!(READ_BUFFER).read_volatile().dequeue() } {
         c
+    } else {
+        unsafe {
+            let scheduler = &mut (*addr_of_mut!(SCHEDULER));
+            scheduler.block(
+                crate::thread::thread_control_block::BlockReason::Read,
+                &mut *addr_of_mut!(READ_QUEUE),
+            );
+            scheduler.change_next();
+        };
+        0 as char
     }
 }
 
 #[inline]
 pub fn init() {
     unsafe {
-        let dbgu = &mut **DBGU.lock();
+        let dbgu = &mut *DBGU;
         write_volatile(&mut dbgu.mr, CHMOD | PAR);
         write_volatile(&mut dbgu.cr, RSTTX | RSTRX | RXEN | TXEN);
         write_volatile(&mut dbgu.ier, RXRDY);
@@ -131,11 +116,11 @@ impl uWrite for Dbgu {
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:expr),*) => (ufmt::uwrite!(unsafe { &mut **$crate::dbgu::DBGU.lock() }, $($arg,)*));
+    ($($arg:expr),*) => (ufmt::uwrite!(unsafe { &mut *$crate::dbgu::DBGU }, $($arg,)*));
 }
 
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
-    ($($arg:expr),*) => (ufmt::uwriteln!(unsafe {&mut **$crate::dbgu::DBGU.lock() }, $($arg,)*));
+    ($($arg:expr),*) => (ufmt::uwriteln!(unsafe {&mut *$crate::dbgu::DBGU}, $($arg,)*));
 }

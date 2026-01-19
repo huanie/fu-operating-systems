@@ -3,6 +3,7 @@ use crate::thread::schedule::CURRENT_THREAD;
 use crate::thread::thread_control_block::ThreadControlBlock;
 use core::arch::naked_asm;
 use core::hint::spin_loop;
+use core::mem::offset_of;
 use core::ops::Deref;
 
 #[repr(u32)]
@@ -98,14 +99,67 @@ extern "C" fn irq() {
         // switch back
         "movs pc, lr",
         current_thread = sym CURRENT_THREAD,
-        cpsr_offset = const core::mem::offset_of!(ThreadControlBlock, cpsr),
-        pc_offset = const core::mem::offset_of!(ThreadControlBlock, pc)
+        cpsr_offset = const offset_of!(ThreadControlBlock, cpsr),
+        pc_offset = const offset_of!(ThreadControlBlock, pc)
     )
 }
 
 #[unsafe(naked)]
+/// r0 is the systemcall id
+/// r1 is the argument if there is one
 extern "C" fn software() {
-    naked_asm!("")
+    naked_asm!(
+        // save on the exception stack at first because r12 is my tcb pointer
+        "push {{r12}}",
+        // the current thread,
+        "ldr r12, ={current_thread}",
+        "ldr r12, [r12]",
+        // save r0-r11
+        "stmia r12!, {{r0-r11}}" ,
+        // restore original r12 value (popped from first push)
+        "pop {{r0}}",
+        "stmia r12!, {{r0}}",
+        // store sp and lr from user mode
+        "stmia r12, {{sp, lr}}^",
+        "nop",
+        // manual add 8 because writeback is not allowed with ^
+        "add r12, r12, #8",
+        // save pc (which is lr in exception mode)
+        "stmia r12!, {{lr}}",
+        // save cpsr
+        "mrs r1, spsr",
+        "stmia r12, {{r1}}",
+        /* HANDLE INTERRUPT */
+
+        // load the arguments
+        "ldr r4, ={current_thread}",
+        "ldr r4, [r4]",
+        "ldr r0, [r4, #{r0_offset}]",
+        "ldr r1, [r4, #{r1_offset}]",
+        "bl system_call",
+        // put the return value into tcb
+        "str r0, [r4, #{r0_offset}]",
+
+        /* RESTORE CONTEXT */
+        // restore from CURRENT_THREAD (which may have changed if we context switched)
+        "ldr lr, ={current_thread}",
+        "ldr lr, [lr]",
+        // set cpsr
+        "ldr r1, [lr, #{cpsr_offset}]",
+        "msr spsr, r1",
+        // restore the registers
+        "ldmia lr, {{r0-r12, r13, r14}}^",
+        "nop",
+        // load pc
+        "ldr lr, [lr, #{pc_offset}]",
+        // switch back
+        "movs pc, lr",
+        current_thread = sym CURRENT_THREAD,
+        cpsr_offset = const offset_of!(ThreadControlBlock, cpsr),
+        pc_offset = const offset_of!(ThreadControlBlock, pc),
+        r0_offset = const offset_of!(ThreadControlBlock, r0),
+        r1_offset = const offset_of!(ThreadControlBlock, r1),
+    )
 }
 
 #[unsafe(no_mangle)]
