@@ -1,8 +1,8 @@
-use crate::hardware::cpu;
-use crate::thread::schedule::{CURRENT_THREAD, NUMBER_OF_THREADS, SCHEDULER};
+use crate::thread::CURRENT_THREAD;
+use crate::thread::schedule::{NUMBER_OF_THREADS, SCHEDULER};
 use crate::util::busy_wait;
 use core::convert::Infallible;
-use core::ptr::{self, addr_of_mut, read_volatile, write_volatile};
+use core::ptr::{read_volatile, write_volatile};
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 use ufmt::uWrite;
 
@@ -42,14 +42,6 @@ impl Dbgu {
         }
     }
 }
-#[inline(never)]
-extern "C" fn handler(c: usize) {
-    let x = c as u8 as char;
-    for _ in 0..10 {
-        write(x);
-        busy_wait(1_100_000);
-    }
-}
 
 #[unsafe(export_name = "dbgu_interrupt")]
 pub extern "C" fn interrupt() {
@@ -57,13 +49,13 @@ pub extern "C" fn interrupt() {
         let dbgu = &DBGU;
         if read_volatile(&(**dbgu).sr) & RXRDY != 0 {
             let c = read_volatile(&(**dbgu).rhr) as usize;
-            if let Some(thread_id) = (&mut *addr_of_mut!(READ_QUEUE)).dequeue() {
-                let scheduler = &mut *addr_of_mut!(SCHEDULER);
+            if let Some(thread_id) = (&mut *{ &raw mut READ_QUEUE }).dequeue() {
+                let scheduler = &mut *{ &raw mut SCHEDULER };
                 scheduler.wakeup(thread_id);
                 let thread = scheduler.get_mut(thread_id);
                 thread.r0 = c;
             } else {
-                (&mut *addr_of_mut!(READ_BUFFER)).enqueue(c as u8 as char);
+                (&mut *{ &raw mut READ_BUFFER }).enqueue(c as u8 as char);
             }
         }
     }
@@ -78,15 +70,13 @@ pub fn write(c: char) {
 
 /// this will set the current thread as blocked
 pub fn read() -> char {
-    if let Some(c) = unsafe { addr_of_mut!(READ_BUFFER).read_volatile().dequeue() } {
+    if let Some(c) = unsafe { (&raw mut READ_BUFFER).read_volatile().dequeue() } {
         c
     } else {
         unsafe {
-            let scheduler = &mut (*addr_of_mut!(SCHEDULER));
-            scheduler.block(
-                crate::thread::thread_control_block::BlockReason::Read,
-                &mut *addr_of_mut!(READ_QUEUE),
-            );
+            let scheduler = &mut *{ &raw mut SCHEDULER };
+            scheduler.block(crate::thread::BlockReason::Read);
+            (&mut *{ &raw mut READ_QUEUE }).enqueue({ *CURRENT_THREAD }.id);
             scheduler.change_next();
         };
         0 as char

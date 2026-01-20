@@ -32,19 +32,39 @@ fn panic(info: &PanicInfo) -> ! {
 extern "C" fn reader(_: usize) {
     loop {
         let c = syscall::read();
+        if c.is_ascii_uppercase() {
+            syscall::spawn(writer_active, c as usize);
+        } else {
+            syscall::spawn(writer_passive, c as usize);
+        }
     }
 }
 
-#[allow(clippy::empty_loop)]
+extern "C" fn writer_active(c: usize) {
+    let c = c as u8 as char;
+    for _ in 0..10 {
+        syscall::write(c);
+        util::busy_wait(10000000);
+    }
+}
+
+extern "C" fn writer_passive(c: usize) {
+    let c = c as u8 as char;
+    for _ in 0..10 {
+        syscall::write(c);
+        syscall::sleep(1000);
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
     system_timer::init();
     dbgu::init();
-    let scheduler = unsafe { &mut (*core::ptr::addr_of_mut!(SCHEDULER)) };
+    let scheduler = unsafe { &mut *{ &raw mut SCHEDULER } };
     scheduler.spawn(idle_thread, 0);
     scheduler.spawn(reader, 0);
     cpu::enable_interrupts();
-    system_timer::set_interval::<50>();
+    system_timer::set_interval::<{ hardware::system_timer::INTERVAL_MS }>();
 
     // the context switch will make it switch to the idle_thread
     loop {

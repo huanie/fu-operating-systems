@@ -1,7 +1,5 @@
-use crate::thread::thread_control_block::{BlockReason, State, ThreadControlBlock};
+use super::{BlockReason, State, ThreadControlBlock};
 use core::hint::spin_loop;
-use core::ptr::addr_of_mut;
-use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 
 pub struct Scheduler<const SIZE: usize> {
     data: [ThreadControlBlock; SIZE],
@@ -91,7 +89,7 @@ impl<const SIZE: usize> Scheduler<SIZE> {
             next = &mut self.data[Self::next(next.id)];
         }
 
-        unsafe { CURRENT_THREAD = addr_of_mut!(self.data[IDLE_THREAD_ID]) }
+        unsafe { CURRENT_THREAD = (&raw mut self.data[IDLE_THREAD_ID]) }
     }
 
     pub fn spawn(&mut self, handler: extern "C" fn(usize) -> (), arg: usize) {
@@ -112,20 +110,16 @@ impl<const SIZE: usize> Scheduler<SIZE> {
     }
 
     #[inline]
-    pub fn block(
-        &mut self,
-        reason: BlockReason,
-        queue: &mut ConstGenericRingBuffer<usize, NUMBER_OF_THREADS>,
-    ) {
-        let id = unsafe { (&**addr_of_mut!(CURRENT_THREAD)).id };
+    pub fn block(&mut self, reason: BlockReason) {
+        let id = unsafe { (**{ &raw const CURRENT_THREAD }).id };
         self.data[id].state = State::Blocked(reason);
-        queue.enqueue(id);
     }
 
     #[inline]
     pub fn wakeup(&mut self, id: usize) {
         self.data[id].state = State::Ready;
     }
+
     #[inline]
     pub fn get_mut(&mut self, id: usize) -> &mut ThreadControlBlock {
         &mut self.data[id]
@@ -134,4 +128,4 @@ impl<const SIZE: usize> Scheduler<SIZE> {
 
 pub static mut SCHEDULER: Scheduler<NUMBER_OF_THREADS> = Scheduler::<NUMBER_OF_THREADS>::new();
 pub static mut CURRENT_THREAD: *mut ThreadControlBlock =
-    unsafe { addr_of_mut!(SCHEDULER.data[IDLE_THREAD_ID]) };
+    unsafe { (&raw mut SCHEDULER.data[IDLE_THREAD_ID]) };

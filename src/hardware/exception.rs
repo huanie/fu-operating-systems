@@ -136,6 +136,7 @@ extern "C" fn software() {
         "ldr r4, [r4]",
         "ldr r0, [r4, #{r0_offset}]",
         "ldr r1, [r4, #{r1_offset}]",
+        "ldr r2, [r4, #{r2_offset}]",
         "bl system_call",
         // put the return value into tcb
         "str r0, [r4, #{r0_offset}]",
@@ -159,6 +160,7 @@ extern "C" fn software() {
         pc_offset = const offset_of!(ThreadControlBlock, pc),
         r0_offset = const offset_of!(ThreadControlBlock, r0),
         r1_offset = const offset_of!(ThreadControlBlock, r1),
+        r2_offset = const offset_of!(ThreadControlBlock, r2),
     )
 }
 

@@ -8,9 +8,7 @@ pub enum State {
 pub enum BlockReason {
     Read,
     /// the time in clock cycles
-    Sleep {
-        time: usize,
-    },
+    Sleep,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
