@@ -1,5 +1,5 @@
 use crate::thread::schedule::SCHEDULER;
-use crate::thread::{BlockReason, CURRENT_THREAD, NUMBER_OF_THREADS, State, ThreadControlBlock};
+use crate::thread::{BlockReason, CURRENT_THREAD, NUMBER_OF_THREADS};
 
 pub const INTERVAL_MS: usize = 50;
 const PITS: usize = 1 << 0;

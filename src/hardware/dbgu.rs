@@ -1,7 +1,7 @@
 use crate::thread::CURRENT_THREAD;
 use crate::thread::schedule::{NUMBER_OF_THREADS, SCHEDULER};
-use crate::util::busy_wait;
 use core::convert::Infallible;
+use core::fmt::Write;
 use core::ptr::{read_volatile, write_volatile};
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 use ufmt::uWrite;
@@ -90,6 +90,19 @@ pub fn init() {
         write_volatile(&mut dbgu.mr, CHMOD | PAR);
         write_volatile(&mut dbgu.cr, RSTTX | RSTRX | RXEN | TXEN);
         write_volatile(&mut dbgu.ier, RXRDY);
+    }
+}
+
+impl Write for Dbgu {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        for c in s.chars() {
+            self.write_character(c);
+        }
+        Ok(())
+    }
+    fn write_char(&mut self, c: char) -> core::fmt::Result {
+        self.write_character(c);
+        Ok(())
     }
 }
 

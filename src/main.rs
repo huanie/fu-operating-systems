@@ -1,19 +1,21 @@
 #![no_std]
 #![no_main]
+#![feature(adt_const_params)]
+#![allow(incomplete_features)]
 
 global_asm!(include_str!("./start.s"));
 
 mod hardware;
+#[allow(unused)]
 mod syscall;
 mod thread;
 mod util;
 
+use crate::thread::schedule::{SCHEDULER, idle_thread};
 use core::arch::global_asm;
 use core::hint::spin_loop;
 use core::panic::PanicInfo;
 use hardware::*;
-
-use crate::thread::schedule::{SCHEDULER, idle_thread};
 
 /// This function is called on panic.
 #[panic_handler]
@@ -58,8 +60,10 @@ extern "C" fn writer_passive(c: usize) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
-    system_timer::init();
     dbgu::init();
+    mmu::init();
+    system_timer::init();
+
     let scheduler = unsafe { &mut *{ &raw mut SCHEDULER } };
     scheduler.spawn(idle_thread, 0);
     scheduler.spawn(reader, 0);

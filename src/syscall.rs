@@ -34,10 +34,10 @@ extern "C" fn system_call(id: usize, arg: usize, arg1: usize) -> usize {
             scheduler.spawn(fun, arg1);
             0
         }
-        Systemcall::ThreadSleep => unsafe {
+        Systemcall::ThreadSleep => {
             system_timer::sleep(arg);
             0
-        },
+        }
     }
 }
 

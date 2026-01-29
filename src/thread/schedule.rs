@@ -32,12 +32,13 @@ extern "C" fn end() -> ! {
 }
 
 const IDLE_THREAD_ID: usize = 0;
-const STACK_SIZE: usize = 512;
+pub const STACK_SIZE: usize = 4096;
 pub const NUMBER_OF_THREADS: usize = 16;
 const NEW_THREAD_CPSR: usize = 0b10000;
 
 unsafe extern "C" {
-    static __stack_top_user: usize;
+    #[link_name = "__stack_top_user"]
+    pub static USER_STACK_TOP: usize;
 }
 
 impl<const SIZE: usize> Scheduler<SIZE> {
@@ -93,7 +94,7 @@ impl<const SIZE: usize> Scheduler<SIZE> {
     }
 
     pub fn spawn(&mut self, handler: extern "C" fn(usize) -> (), arg: usize) {
-        let stack_head = unsafe { &__stack_top_user as *const usize as usize };
+        let stack_head = unsafe { &USER_STACK_TOP as *const usize as usize };
         for (i, thread) in self.data.iter_mut().enumerate() {
             if thread.state == State::Done {
                 // we use lr to jump back to the correct code

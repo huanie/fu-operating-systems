@@ -48,13 +48,14 @@ _start:
 .equ INTERRUPTS_DISABLED, (INTERRUPT_BIT | FINTERRUPT_BIT) @ All modes start disabled
 
 @ Stack configuration constants
-.equ RAM_ORIGIN, 0x20000000
-.equ RAM_LENGTH, 16000 * 1024  @ 16000K
+@ WARNING: editing this also requires editing memlayout.rs
+.equ STACK_ORIGIN, 0x20000000
+.equ STACK_LENGTH, 16000 * 1024  @ 16000K
 .equ STACK_SIZE_EXC, 0x100
 
 .global __stack_top_user
-.equ __stack_top, RAM_ORIGIN + RAM_LENGTH
-.equ __stack_end, RAM_ORIGIN
+.equ __stack_top, STACK_ORIGIN + STACK_LENGTH
+.equ __stack_end, STACK_ORIGIN
 .equ __stack_top_fiq, __stack_top
 .equ __stack_top_irq, __stack_top_fiq - STACK_SIZE_EXC
 .equ __stack_top_abort, __stack_top_irq - STACK_SIZE_EXC

@@ -12,6 +12,7 @@ enum Exception {
     Software = 0x8,
     Irq = 0x18,
     Undefined = 0x4,
+    PrefetchAbort = 0xc,
 }
 
 struct Trampoline(u32);
@@ -43,12 +44,20 @@ extern "C" fn init_exceptions() {
         undefined_instruction,
     );
     install_exception_handler(Exception::Irq, TRAMPOLINE.get(3), irq);
+    install_exception_handler(Exception::PrefetchAbort, TRAMPOLINE.get(4), prefect_abort);
     crate::aic::init();
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn data_abort() {
     println!("Data abort");
+    loop {
+        spin_loop();
+    }
+}
+
+extern "C" fn prefect_abort() {
+    println!("Prefetch abort");
     loop {
         spin_loop();
     }
