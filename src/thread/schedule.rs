@@ -1,4 +1,5 @@
 use super::{BlockReason, State, ThreadControlBlock};
+use crate::hardware::memlayout::VIRTUAL_USER_STACK_TOP;
 use core::hint::spin_loop;
 
 pub struct Scheduler<const SIZE: usize> {
@@ -34,12 +35,8 @@ extern "C" fn end() -> ! {
 const IDLE_THREAD_ID: usize = 0;
 pub const STACK_SIZE: usize = 4096;
 pub const NUMBER_OF_THREADS: usize = 16;
+// user mode
 const NEW_THREAD_CPSR: usize = 0b10000;
-
-unsafe extern "C" {
-    #[link_name = "__stack_top_user"]
-    pub static USER_STACK_TOP: usize;
-}
 
 impl<const SIZE: usize> Scheduler<SIZE> {
     pub const fn new() -> Self {
@@ -94,7 +91,7 @@ impl<const SIZE: usize> Scheduler<SIZE> {
     }
 
     pub fn spawn(&mut self, handler: extern "C" fn(usize) -> (), arg: usize) {
-        let stack_head = unsafe { &USER_STACK_TOP as *const usize as usize };
+        let stack_head = VIRTUAL_USER_STACK_TOP;
         for (i, thread) in self.data.iter_mut().enumerate() {
             if thread.state == State::Done {
                 // we use lr to jump back to the correct code

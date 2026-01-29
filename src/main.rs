@@ -60,9 +60,10 @@ extern "C" fn writer_passive(c: usize) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kernel_main() -> ! {
+    crate::println!("Hello World");
     dbgu::init();
-    mmu::init();
     system_timer::init();
+    mmu::init();
 
     let scheduler = unsafe { &mut *{ &raw mut SCHEDULER } };
     scheduler.spawn(idle_thread, 0);

@@ -61,8 +61,9 @@ _start:
 .equ __stack_top_abort, __stack_top_irq - STACK_SIZE_EXC
 .equ __stack_top_undefined, __stack_top_abort - STACK_SIZE_EXC
 .equ __stack_top_supervisor, __stack_top_undefined - STACK_SIZE_EXC
-.equ __stack_top_system, __stack_top_supervisor - STACK_SIZE_EXC
-.equ __stack_top_user, __stack_top_system
+
+.equ __stack_top_user, 0xC0000000
+.equ __stack_top_system, __stack_top_user
 
 @ Memory remap definition
 .equ REMAP_CONTROL_REGISTER, 0xFFFFFF00

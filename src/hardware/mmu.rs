@@ -1,12 +1,11 @@
 use super::memlayout::*;
-use core::arch::asm;
 use core::marker::ConstParamTy;
 
 #[derive(PartialEq, Eq, ConstParamTy)]
 #[repr(u8)]
 pub enum AccessControl {
     Full,
-    OnlyUserRead,
+    UserReadOnly,
     KernelReadOnly,
 }
 
@@ -14,15 +13,15 @@ impl AccessControl {
     pub const fn ap(&self) -> u8 {
         match self {
             AccessControl::Full => 0b11,
-            AccessControl::OnlyUserRead => 0b10,
+            AccessControl::UserReadOnly => 0b10,
             AccessControl::KernelReadOnly => 0b00,
         }
     }
     pub const fn domain(&self) -> u8 {
         match self {
-            AccessControl::Full => 0b10,
-            AccessControl::OnlyUserRead => 0b10,
-            AccessControl::KernelReadOnly => 0b10,
+            AccessControl::Full => 0b01,
+            AccessControl::UserReadOnly => 0b01,
+            AccessControl::KernelReadOnly => 0b01,
         }
     }
 }
@@ -49,13 +48,17 @@ impl MmuTable {
     pub const fn init() -> Self {
         let mut table = Self::new();
         // kernel code
-        table.map_section::<KERNEL_START, 1, KERNEL_START, { AccessControl::Full }>(); // TODO: just as a test
+        table.map_section::<KERNEL_START, 1, KERNEL_START, { AccessControl::UserReadOnly }>();
         // exception vectors
-        table.map_section::<EXCEPTION_START, 1, EXCEPTION_START, { AccessControl::Full }>();
+        table
+            .map_section::<EXCEPTION_START, 1, EXCEPTION_START, { AccessControl::KernelReadOnly }>(
+            );
         // the stacks
-        table.map_section::<STACK_MMU, 1, STACK_MMU, { AccessControl::Full }>();
+        table.map_section::<STACK_MMU, 1, STACK_MMU, { AccessControl::UserReadOnly }>();
+        // the user/system stack
+        table.map_section::<STACK_PHYS_BASE, 1, VIRTUAL_USER_STACK_BASE, { AccessControl::Full }>();
         // the peripherals
-        table.map_section::<PERIPHERALS_START, {sections(PERIPHERALS_START, PERIPHERALS_END)}, PERIPHERALS_START, { AccessControl::Full }>();
+        table.map_section::<PERIPHERALS_START, {sections(PERIPHERALS_START, PERIPHERALS_END)}, PERIPHERALS_START, { AccessControl::UserReadOnly }>();
 
         //table.map_section::<0, 4096, 0, { AccessControl::Full }>();
         table
@@ -114,10 +117,8 @@ pub fn init() {
             // 4. Data Synchronization Barrier (Drain Write Buffer)
             "mcr p15, 0, {tmp}, c7, c10, 4",
 
-            // 5. Read-Modify-Write Control Register
-            "mrc p15, 0, {tmp}, c1, c0, 0",
-            "orr {tmp}, {tmp}, #1",          // Set bit 0 (MMU Enable)
-            "mcr p15, 0, {tmp}, c1, c0, 0",
+            // 5. Write Control Register
+            "mcr p15, 0, {control}, c1, c0, 0",
 
             // 6. Pipeline Flush / ISB
             "nop",
@@ -125,7 +126,8 @@ pub fn init() {
             "nop",
             table_ptr = in(reg) table_ptr,
             domains = in(reg) DOMAIN_ACCESS,
-            tmp = out(reg) _, // Let the compiler pick any scratch register
+            tmp = out(reg) _,
+            control = in(reg) (1 | (1 << 8))
         )
     }
 }
